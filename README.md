@@ -134,7 +134,7 @@ let push =  BMSPushClient.sharedInstance
 Add this code to initialize and register the app for push notification in APNS.
 
 ```
-BMSPushClient.sharedInstance.initializeWithAppGUID(appGUID: "APP-GUID-HERE", clientSecret:"CLIENT-SECRET-HERE")
+BMSPushClient.sharedInstance.initialize(notifOptions)
 ```    
 
 >**Note**: If you are using Xcode8 beta, add `yourApp.entitlements`. To do this, go to Targets -> Capabilities and enable Push Notifications capability.
