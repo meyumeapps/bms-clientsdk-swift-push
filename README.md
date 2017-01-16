@@ -98,8 +98,6 @@ myBMSClient.initialize(bluemixRegion: "Location where your app Hosted")
 
 myBMSClient.initialize(bluemixRegion: "Location where your app Hosted")
 
-myBMSClient.defaultRequestTimeout = 10.0 // Timeout in seconds
-
 ```
 
 #####bluemixRegion
@@ -114,12 +112,13 @@ let push =  BMSPushClient.sharedInstance
 
 //Swift 3
 
-push.initializeWithAppGUID(appGUID: "your push appGUID", clientSecret:"your push client secret")
+ let notifOptions = BMSPushClientOptions(appGUID: "", clientSecret: "", category: [])
+ push.initialize(options: notifOptions)
 
 //Swift Older
 
-push.initializeWithAppGUID(appGUID:"your push appGUID", clientSecret:"your push client secret")
-
+ let notifOptions = BMSPushClientOptions(appGUID: "", clientSecret: "", category: [])
+ push.initialize(notifOptions)
 ```
 
 #####appGUID
@@ -393,20 +392,21 @@ To enable interactive push notifications, the notification action parameters mus
 
 ```
 let actionOne = BMSPushNotificationAction(identifierName: "FIRST", buttonTitle: "Accept", isAuthenticationRequired: false, defineActivationMode: UIUserNotificationActivationMode.background)
-            
+
 let actionTwo = BMSPushNotificationAction(identifierName: "SECOND", buttonTitle: "Reject", isAuthenticationRequired: false, defineActivationMode: UIUserNotificationActivationMode.background)
-            
+
 let category = BMSPushNotificationActionCategory(identifierName: "category", buttonActions: [actionOne, actionTwo])
-            
-let notificationOptions = BMSPushClientOptions(categoryName: [category])
-            
-let push = BMSPushClient.sharedInstance.initializeWithAppGUID(appGUID: "APP-GUID-HERE", clientSecret:"CLIENT-SECRET-HERE", options: notificationOptions)
-           
+
+let notifOptions = BMSPushClientOptions(appGUID: "APP-GUID-HERE", clientSecret: "CLIENT-SECRET-HERE", category: [category])
+push.initialize(options: notifOptions)
+
 ```
+
+>**Note**: You can add multiple categories inside  BMSPushClientOptions.
 
 ###Enabling Rich Push notification support in iOS 10 (Audio, Video, GIF and Images)
 
-To receive rich push notifications with iOS10, implement ```UNNotificationServiceExtension```.  The extension will intercept the rich push notification and it needs to be handled here.  While sending the notification from the server, all the four fields, alert, title, subtitle, attachmentURL must be specified. 
+To receive rich push notifications with iOS10, implement ```UNNotificationServiceExtension```.  The extension will intercept the rich push notification and it needs to be handled here.  While sending the notification from the server, all the four fields, alert, title, subtitle, attachmentURL must be specified.
 
 In the didReceive() method of your service extension, add the following code to retrieve the rich notification content.
 
@@ -414,7 +414,7 @@ In the didReceive() method of your service extension, add the following code to 
 override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
        self.contentHandler = contentHandler
         bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
-        
+
         BMSPushRichPushNotificationOptions.didReceive(request, withContentHandler: contentHandler)
         }
 ```
@@ -529,7 +529,7 @@ In your applications, go to `AppDelegate` file and inside `didFinishLaunchingWit
 
 ```
 let remoteNotif = launchOptions?[UIApplicationLaunchOptionsKey.remoteNotification] as? NSDictionary
-        
+
 if remoteNotif != nil {
     let urlField = (remoteNotif?.value(forKey: "url") as! String)
     application.open(URL(string: urlField)!, options: [:], completionHandler: nil)

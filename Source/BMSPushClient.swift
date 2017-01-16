@@ -97,25 +97,48 @@ import BMSCore
         private var isInitialized = false;
         
         // MARK: Initializers
-        
+    
         /**
          The required intializer for the `BMSPushClient` class.
          
-         This method will intialize the BMSPushClient with clientSecret based registration.
+         This method will intialize the BMSPushClient with options.
          
-         - parameter clientSecret:    The clientSecret of the Push Service
-         - parameter appGUID:    The pushAppGUID of the Push Service
+         - parameter options:    BMSPushClientOptions.
          */
-        public func initializeWithAppGUID (appGUID: String, clientSecret: String) {
+        public func initialize(options: BMSPushClientOptions) {
             
-            if validateString(object: clientSecret) {
-                self.clientSecret = clientSecret
-                self.applicationId = appGUID
+            if validateString(object: options.clientSecret!) {
+                self.clientSecret = options.clientSecret
+                self.applicationId = options.appGUID
                 isInitialized = true;
                 
                 if #available(iOS 10.0, *) {
-                                        
-                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound], completionHandler: { (granted, error) in
+                    
+                    let center = UNUserNotificationCenter.current()
+                    
+                    if ((options.category?.count)! > 0)  {
+                        
+                        let category : [BMSPushNotificationActionCategory] = options.category!
+                        
+                        for i in 0...((options.category?.count)! - 1){
+                            let categoryFirst : BMSPushNotificationActionCategory = category[i]
+                            
+                            let pushNotificationAction : [BMSPushNotificationAction] = categoryFirst.actions
+                            let pushCategoryIdentifier : String = categoryFirst.identifier
+                            
+                            let firstActionButton : BMSPushNotificationAction = pushNotificationAction.first!
+                            let secondActionButton : BMSPushNotificationAction = pushNotificationAction[1]
+                            
+                            let replyActionButtonOne = UNNotificationAction(identifier: firstActionButton.identifier, title: firstActionButton.title)
+                            let replyActionButtonTwo = UNNotificationAction(identifier: secondActionButton.identifier, title: secondActionButton.title)
+                            
+                            let responseCategory = UNNotificationCategory(identifier: pushCategoryIdentifier, actions: [replyActionButtonOne, replyActionButtonTwo], intentIdentifiers: [])
+                            
+                            center.setNotificationCategories([responseCategory])
+                        }
+                    }
+                    
+                    center.requestAuthorization(options: [.alert, .badge, .sound], completionHandler: { (granted, error) in
                         if(granted) {
                             UIApplication.shared.registerForRemoteNotifications()
                         } else {
@@ -125,11 +148,92 @@ import BMSCore
                 } else {
                     // Fallback on earlier versions
                     
+                    if ((options.category?.count)! > 0)  {
+                        
+                        let category : [BMSPushNotificationActionCategory] = options.category!
+                        var categories:NSSet?
+                        
+                        for i in 0...((options.category?.count)! - 1){
+                            let categoryFirst : BMSPushNotificationActionCategory = category[i]
+                            
+                            let pushNotificationAction : [BMSPushNotificationAction] = categoryFirst.actions
+                            let pushCategoryIdentifier : String = categoryFirst.identifier
+                            
+                            let firstActionButton : BMSPushNotificationAction = pushNotificationAction.first!
+                            let secondActionButton : BMSPushNotificationAction = pushNotificationAction[1]
+                            
+                            let replyActionButtonOne : UIMutableUserNotificationAction = UIMutableUserNotificationAction()
+                            replyActionButtonOne.identifier = firstActionButton.identifier
+                            replyActionButtonOne.title = firstActionButton.title
+                            replyActionButtonOne.activationMode = firstActionButton.activationMode
+                            replyActionButtonOne.isAuthenticationRequired = firstActionButton.authenticationRequired!
+                            
+                            let replyActionButtonTwo : UIMutableUserNotificationAction = UIMutableUserNotificationAction()
+                            replyActionButtonTwo.identifier = secondActionButton.identifier
+                            replyActionButtonTwo.title = secondActionButton.title
+                            replyActionButtonTwo.activationMode = secondActionButton.activationMode
+                            replyActionButtonTwo.isAuthenticationRequired = secondActionButton.authenticationRequired!
+                            
+                            let responseCategory : UIMutableUserNotificationCategory = UIMutableUserNotificationCategory()
+                            responseCategory.identifier = pushCategoryIdentifier
+                            
+                            let replyActions: [UIUserNotificationAction] = [replyActionButtonOne, replyActionButtonTwo]
+                            
+                            responseCategory.setActions(replyActions, for:UIUserNotificationActionContext.default)
+                            responseCategory.setActions(replyActions, for:UIUserNotificationActionContext.minimal)
+                            
+                            categories = NSSet(object: responseCategory)
+                        }
+                        
+                        let settings = UIUserNotificationSettings(types: [.alert, .badge, .sound], categories: categories as? Set<UIUserNotificationCategory>)
+                        
+                        UIApplication.shared.registerUserNotificationSettings(settings)
+                    } else{
+                        let settings = UIUserNotificationSettings(types: [.alert, .badge, .sound], categories: nil)
+                        
+                        UIApplication.shared.registerUserNotificationSettings(settings)
+                    }
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
+            else{
+                self.sendAnalyticsData(logType: LogLevel.error, logStringData: "Error while registration - Client secret is not valid")
+                print("Error while registration - Client secret is not valid")
+            }
+        }
+        /**
+         The required intializer for the `BMSPushClient` class.
+     
+         This method will intialize the BMSPushClient with clientSecret based registration.
+     
+         - parameter clientSecret:    The clientSecret of the Push Service
+         - parameter appGUID:    The pushAppGUID of the Push Service
+         */
+        @available(*, deprecated, message: "This method was deprecated , please use initialize(options:_ )")
+        public func initializeWithAppGUID (appGUID: String, clientSecret: String) {
+    
+            if validateString(object: clientSecret) {
+                self.clientSecret = clientSecret
+                self.applicationId = appGUID
+                isInitialized = true;
+    
+                if #available(iOS 10.0, *) {
+    
+                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound], completionHandler: { (granted, error) in
+                        if(granted) {
+                            UIApplication.shared.registerForRemoteNotifications()
+                        } else {
+                            print("Error while registering with APNS server :  \(error?.localizedDescription)")
+                        }
+                    })
+                } else {
+                    // Fallback on earlier versions
+    
                     let settings = UIUserNotificationSettings(types: [.alert, .badge, .sound], categories: nil)
-                    
+    
                     UIApplication.shared.registerUserNotificationSettings(settings)
                     UIApplication.shared.registerForRemoteNotifications()
-                    
+    
                 }
             }
             else{
@@ -147,6 +251,7 @@ import BMSCore
          - parameter appGUID:    The pushAppGUID of the Push Service
          - parameter options: The push notification options
          */
+        @available(*, deprecated, message: "This method was deprecated , please use initialize(options:_ )")
         public func initializeWithAppGUID (appGUID: String, clientSecret: String, options: BMSPushClientOptions) {
             
             if validateString(object: clientSecret) {
@@ -158,7 +263,7 @@ import BMSCore
                     
                     let center = UNUserNotificationCenter.current()
 
-                    let category : [BMSPushNotificationActionCategory] = options.category
+                    let category : [BMSPushNotificationActionCategory] = options.category!
                     
                     let categoryFirst : BMSPushNotificationActionCategory = category.first!
                     
@@ -223,27 +328,12 @@ import BMSCore
                     UIApplication.shared.registerForRemoteNotifications()
                     
                 }
-                
             }
             else{
                 self.sendAnalyticsData(logType: LogLevel.error, logStringData: "Error while registration - Client secret is not valid")
                 print("Error while registration - Client secret is not valid")
             }
         }
-        
-        /**
-         The required intializer for the `BMSPushClient` class.
-         
-         This method will intialize the BMSPushClient.
-         
-         - parameter appGUID:    The pushAppGUID of the Push Service
-         */
-        @available(*, deprecated, message: "This method was deprecated , please use initializeWithAppGUID(appGUID:_  clientSecret:_ )")
-        public func initializeWithAppGUID (appGUID: String) {
-            self.applicationId = appGUID;
-            isInitialized = true;
-        }
-        
         
         // MARK: Methods (Public)
         
@@ -1029,11 +1119,80 @@ import BMSCore
         /**
          The required intializer for the `BMSPushClient` class.
          
+         This method will intialize the BMSPushClient with options.
+         
+         - parameter options:    BMSPushClientOptions.
+         */
+        public func initialize(options: BMSPushClientOptions) {
+            
+            if validateString(options.clientSecret!) {
+                self.clientSecret = options.clientSecret
+                self.applicationId = options.appGUID
+                isInitialized = true;
+                
+                // Fallback on earlier versions
+                
+                if ((options.category?.count)! > 0)  {
+                    
+                    let category : [BMSPushNotificationActionCategory] = options.category!
+                    var categories:NSSet?
+                    
+                    for i in 0...((options.category?.count)! - 1){
+                        let categoryFirst : BMSPushNotificationActionCategory = category[i]
+                        
+                        let pushNotificationAction : [BMSPushNotificationAction] = categoryFirst.actions
+                        let pushCategoryIdentifier : String = categoryFirst.identifier
+                        
+                        let firstActionButton : BMSPushNotificationAction = pushNotificationAction.first!
+                        let secondActionButton : BMSPushNotificationAction = pushNotificationAction[1]
+                        
+                        let replyActionButtonOne : UIMutableUserNotificationAction = UIMutableUserNotificationAction()
+                        replyActionButtonOne.identifier = firstActionButton.identifier
+                        replyActionButtonOne.title = firstActionButton.title
+                        replyActionButtonOne.activationMode = firstActionButton.activationMode
+                        replyActionButtonOne.authenticationRequired = firstActionButton.authenticationRequired!
+                        
+                        let replyActionButtonTwo : UIMutableUserNotificationAction = UIMutableUserNotificationAction()
+                        replyActionButtonTwo.identifier = secondActionButton.identifier
+                        replyActionButtonTwo.title = secondActionButton.title
+                        replyActionButtonTwo.activationMode = secondActionButton.activationMode
+                        replyActionButtonTwo.authenticationRequired = secondActionButton.authenticationRequired!
+                        
+                        let responseCategory : UIMutableUserNotificationCategory = UIMutableUserNotificationCategory()
+                        responseCategory.identifier = pushCategoryIdentifier
+                        
+                        let replyActions: [UIUserNotificationAction] = [replyActionButtonOne, replyActionButtonTwo]
+                        
+                        responseCategory.setActions(replyActions, forContext:UIUserNotificationActionContext.Default)
+                        responseCategory.setActions(replyActions, forContext:UIUserNotificationActionContext.Minimal)
+                        
+                        categories = NSSet(object: responseCategory)
+                    }
+                    
+                    let settings = UIUserNotificationSettings(forTypes: [.Alert,.Badge,.Sound], categories: categories as? Set<UIUserNotificationCategory>)
+                    
+                    UIApplication.sharedApplication().registerUserNotificationSettings(settings)
+                } else{
+                    let settings = UIUserNotificationSettings(forTypes: [.Alert,.Badge,.Sound], categories: nil)
+                    
+                    UIApplication.sharedApplication().registerUserNotificationSettings(settings)
+                }
+                UIApplication.sharedApplication().registerForRemoteNotifications()
+            }
+            else{
+                self.sendAnalyticsData(LogLevel.error, logStringData: "Error while registration - Client secret is not valid")
+                print("Error while registration - Client secret is not valid")
+            }
+        }
+        /**
+         The required intializer for the `BMSPushClient` class.
+         
          This method will intialize the BMSPushClient with clientSecret based registration.
          
          - parameter clientSecret:    The clientSecret of the Push Service
          - parameter appGUID:    The pushAppGUID of the Push Service
          */
+        @available(*, deprecated, message="This method was deprecated , please use initializeWithAppGUID(appGUID:_  clientSecret:_ )")
         public func initializeWithAppGUID (appGUID appGUID: String, clientSecret: String) {
             
             if validateString(clientSecret) {
@@ -1061,6 +1220,7 @@ import BMSCore
          - parameter appGUID:    The pushAppGUID of the Push Service
          - parameter options: The optional push notification options
          */
+        @available(*, deprecated, message="This method was deprecated , please use initializeWithAppGUID(appGUID:_  clientSecret:_ )")
         public func initializeWithAppGUID (appGUID: String, clientSecret: String, options: BMSPushClientOptions) {
             
             if validateString(clientSecret) {
@@ -1069,7 +1229,7 @@ import BMSCore
                 isInitialized = true;
               
                     
-                    let category : [BMSPushNotificationActionCategory] = options.category
+                    let category : [BMSPushNotificationActionCategory] = options.category!
                     
                     let categoryFirst : BMSPushNotificationActionCategory = category.first!
                     
@@ -1112,19 +1272,6 @@ import BMSCore
                 self.sendAnalyticsData(LogLevel.error, logStringData: "Error while registration - Client secret is not valid")
                 print("Error while registration - Client secret is not valid")
             }
-        }
-        
-        /**
-         The required intializer for the `BMSPushClient` class.
-         
-         This method will intialize the BMSPushClient.
-         
-         - parameter appGUID:    The pushAppGUID of the Push Service
-         */
-        @available(*, deprecated, message="This method was deprecated , please use initializeWithAppGUID(appGUID:_  clientSecret:_ )")
-        public func initializeWithAppGUID (appGUID appGUID: String) {
-            self.applicationId = appGUID;
-            isInitialized = true;
         }
         
         
