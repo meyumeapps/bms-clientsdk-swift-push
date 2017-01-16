@@ -290,7 +290,7 @@ import BMSCore
                 } else {
                     // Fallback on earlier versions
                     
-                    let category : [BMSPushNotificationActionCategory] = options.category
+                    let category : [BMSPushNotificationActionCategory] = options.category!
                     
                     let categoryFirst : BMSPushNotificationActionCategory = category.first!
                     
